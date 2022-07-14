@@ -2,8 +2,15 @@
 name = "eval-utility"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+rust-version = "1.61.0"
+description = "Wrapper function of the eval crate. Provides python-like built-in functions."
+readme = "README.md"
+homepage = "https://github.com/floating-floaties/eval-utility/README.md"
+repository = "https://github.com/floating-floaties/eval-utility/"
+license = "MIT"
+license-file = "LICENSE"
+keywords = ["eval", "condition", "parse"]
+exclude = ["Dockerfile", "target", "docker*", "*.lock", ".*"]
 
 [dependencies]
 serde = { version = "1.0.138", features = ["derive"] }
