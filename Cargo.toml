@@ -7,7 +7,6 @@ description = "Wrapper function of the eval crate. Provides python-like built-in
 readme = "README.md"
 homepage = "https://github.com/floating-floaties/eval-utility/README.md"
 repository = "https://github.com/floating-floaties/eval-utility/"
-license = "MIT"
 license-file = "LICENSE"
 keywords = ["eval", "condition", "parse"]
 exclude = ["Dockerfile", "target", "docker*", "*.lock", ".*"]
