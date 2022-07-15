@@ -50,6 +50,23 @@ pub mod eval_wrapper {
     pub enum TypeOfString {
         INT64,
         F64,
+        BOOLEAN,
+        STRING,
+        ARRAY,
+        OBJECT,
+    }
+
+    impl TypeOfString {
+        pub fn value(&self) -> String {
+            match *self {
+                TypeOfString::INT64 => "INTEGER".to_owned(),
+                TypeOfString::F64 => "FLOAT".to_owned(),
+                TypeOfString::BOOLEAN => "BOOLEAN".to_owned(),
+                TypeOfString::STRING => "STRING".to_owned(),
+                TypeOfString::ARRAY => "ARRAY".to_owned(),
+                TypeOfString::OBJECT => "OBJECT".to_owned(),
+            }
+        }
     }
 
     pub fn math_consts() -> Vec<(String, (String, TypeOfString))> {
@@ -266,11 +283,7 @@ pub mod eval_wrapper {
                 } else if type_of == TypeOfString::F64 {
                     result = result.value(key, str_value.parse::<f64>().unwrap())
                 } else {
-                    log::warn!(
-                        "{:?}({}) is not supported math constant :: SKIPPED",
-                        type_of,
-                        str_value
-                    );
+                    panic!("math constants should just be integers and floats; not {:?}", type_of);
                 }
             }
         }
@@ -683,3 +696,20 @@ mod eval {
         );
     }
 }
+
+#[cfg(test)]
+mod type_of_string {
+
+    use crate::eval_wrapper::TypeOfString;
+
+    #[test]
+    fn value_check() {
+        assert_eq!(TypeOfString::INT64.value(), "INTEGER");
+        assert_eq!(TypeOfString::F64.value(), "FLOAT");
+        assert_eq!(TypeOfString::BOOLEAN.value(), "BOOLEAN");
+        assert_eq!(TypeOfString::STRING.value(), "STRING");
+        assert_eq!(TypeOfString::ARRAY.value(), "ARRAY");
+        assert_eq!(TypeOfString::OBJECT.value(), "OBJECT");
+    }
+}
+
