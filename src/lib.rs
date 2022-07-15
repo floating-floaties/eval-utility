@@ -192,7 +192,7 @@ pub mod eval_wrapper {
                                 0
                             }
                         }
-                        Value::String(x) => _atoi(x.to_string()),
+                        Value::String(x) => atoi(x.to_string()),
                         _ => 0,
                     };
                     Ok(to_value(num))
@@ -332,7 +332,7 @@ pub mod eval_wrapper {
                 })
                 .function("time", |extract| {
                     if extract.len() < 2 {
-                        let t = _now("_".to_owned());
+                        let t = now("_".to_owned());
                         return Ok(eval::to_value(t.hour()));
                     }
                     let v: String = match extract.get(1).unwrap() {
@@ -376,7 +376,7 @@ pub mod eval_wrapper {
         let default_tz = "_".to_owned();
         if arguments.is_empty() || arguments.len() < min_args {
             log::warn!("No arguments");
-            return _now(default_tz);
+            return now(default_tz);
         }
 
         let v: Option<String> = match arguments.get(0).unwrap() {
@@ -386,13 +386,13 @@ pub mod eval_wrapper {
 
         if v.is_none() {
             log::warn!("Invalid Timezone");
-            return _now(default_tz);
+            return now(default_tz);
         }
 
-        return _now(v.unwrap());
+        return now(v.unwrap());
     }
 
-    fn _now(tz: String) -> chrono::DateTime<chrono_tz::Tz> {
+    fn now(tz: String) -> chrono::DateTime<chrono_tz::Tz> {
         let utc = chrono::offset::Utc::now();
         let naive_dt = chrono::NaiveDate::from_ymd(utc.year(), utc.month(), utc.day()).and_hms(
             utc.hour(),
@@ -424,7 +424,7 @@ pub mod eval_wrapper {
         }
     }
 
-    fn _atoi(s: String) -> i64 {
+    fn atoi(s: String) -> i64 {
         let mut item = s
             .trim()
             .split(char::is_whitespace)
@@ -485,7 +485,7 @@ mod eval {
         pub fn default() -> Self {
             Spec {}
         } 
-
+        
         pub fn eval<S: AsRef<str>>(&self, expression: S) -> eval::Value {
             let expr = eval_wrapper::expr_wrapper(
                 eval::Expr::new(expression.as_ref().to_owned()),
