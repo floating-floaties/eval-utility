@@ -1,6 +1,6 @@
 pub mod eval_wrapper {
     use chrono::{Datelike, TimeZone, Timelike};
-    use eval::{to_value, Expr, Value};
+    use resolver::{to_value, Expr, Value};
     use regex::Regex;
 
     pub mod consts {
@@ -205,7 +205,7 @@ pub mod eval_wrapper {
             result = result
                 .function("int", |value| {
                     if value.is_empty() {
-                        return Ok(to_value(0));
+                        return Ok(to_value(0_i64));
                     }
                     let v = value.get(0).unwrap();
                     let num: i64 = match v {
@@ -330,50 +330,50 @@ pub mod eval_wrapper {
             result = result
                 .function("day", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(eval::to_value(current_time.date().day()))
+                    Ok(resolver::to_value(current_time.date().day()))
                 })
                 .function("month", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(eval::to_value(current_time.date().month()))
+                    Ok(resolver::to_value(current_time.date().month()))
                 })
                 .function("year", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(eval::to_value(current_time.date().year()))
+                    Ok(resolver::to_value(current_time.date().year()))
                 })
                 .function("weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(eval::to_value(
+                    Ok(resolver::to_value(
                         current_time.date().weekday().number_from_monday(),
                     ))
                 })
                 .function("is_weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
                     let weekday = current_time.date().weekday().number_from_monday();
-                    Ok(eval::to_value(weekday < 6))
+                    Ok(resolver::to_value(weekday < 6))
                 })
                 .function("is_weekend", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
                     let weekday = current_time.date().weekday();
                     let weekends = [chrono::Weekday::Sat, chrono::Weekday::Sun];
-                    Ok(eval::to_value(weekends.contains(&weekday)))
+                    Ok(resolver::to_value(weekends.contains(&weekday)))
                 })
                 .function("time", |extract| {
                     if extract.len() < 2 {
                         let t = now("_".to_owned());
-                        return Ok(eval::to_value(t.hour()));
+                        return Ok(resolver::to_value(t.hour()));
                     }
                     let v: String = match extract.get(1).unwrap() {
-                        eval::Value::Number(x) => {
+                        resolver::Value::Number(x) => {
                             if x.is_f64() {
                                 x.as_f64().unwrap().to_string()
                             } else {
                                 x.as_i64().unwrap().to_string()
                             }
                         }
-                        eval::Value::Bool(x) => x.to_string(),
-                        eval::Value::String(x) => x.to_string(),
-                        eval::Value::Array(x) => serde_json::to_string(x).unwrap(),
-                        eval::Value::Object(x) => serde_json::to_string(x).unwrap(),
+                        resolver::Value::Bool(x) => x.to_string(),
+                        resolver::Value::String(x) => x.to_string(),
+                        resolver::Value::Array(x) => serde_json::to_string(x).unwrap(),
+                        resolver::Value::Object(x) => serde_json::to_string(x).unwrap(),
                         _ => String::from("null"),
                     };
 
@@ -386,7 +386,7 @@ pub mod eval_wrapper {
                         "s" | "second" | "seconds" => current_time.second(),
                         _ => current_time.hour(),
                     };
-                    Ok(eval::to_value(result))
+                    Ok(resolver::to_value(result))
                 })
         }
 
@@ -397,7 +397,7 @@ pub mod eval_wrapper {
     }
 
     fn eval_tz_parse_args(
-        arguments: Vec<eval::Value>,
+        arguments: Vec<resolver::Value>,
         min_args: usize,
     ) -> chrono::DateTime<chrono_tz::Tz> {
         let default_tz = "_".to_owned();
@@ -407,7 +407,7 @@ pub mod eval_wrapper {
         }
 
         let v: Option<String> = match arguments.get(0).unwrap() {
-            eval::Value::String(x) => Some(x.to_string()),
+            resolver::Value::String(x) => Some(x.to_string()),
             _ => None,
         };
 
@@ -502,7 +502,7 @@ pub mod eval_wrapper {
 mod eval {
     use chrono::offset::Utc as Date;
     use chrono::{Datelike, Timelike};
-    use eval::to_value;
+    use resolver::to_value;
 
     use crate::eval_wrapper;
 
@@ -513,9 +513,9 @@ mod eval {
             Spec {}
         } 
         
-        pub fn eval<S: AsRef<str>>(&self, expression: S) -> eval::Value {
+        pub fn eval<S: AsRef<str>>(&self, expression: S) -> resolver::Value {
             let expr = eval_wrapper::expr_wrapper(
-                eval::Expr::new(expression.as_ref().to_owned()),
+                resolver::Expr::new(expression.as_ref().to_owned()),
                 eval_wrapper::EvalConfig::default()
             );
             let result = expr.exec();
