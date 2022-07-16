@@ -54,6 +54,7 @@ pub mod eval_wrapper {
         STRING,
         ARRAY,
         OBJECT,
+        NULL,
     }
 
     impl TypeOfString {
@@ -65,6 +66,19 @@ pub mod eval_wrapper {
                 TypeOfString::STRING => "STRING".to_owned(),
                 TypeOfString::ARRAY => "ARRAY".to_owned(),
                 TypeOfString::OBJECT => "OBJECT".to_owned(),
+                TypeOfString::NULL => "NULL".to_owned(),
+            }
+        }
+
+        pub fn from_value<S: AsRef<str>>(value: S) -> TypeOfString {
+            match value.as_ref().to_uppercase().trim() {
+                "INTEGER" => TypeOfString::INT64,
+                "FLOAT" => TypeOfString::F64,
+                "BOOLEAN" => TypeOfString::BOOLEAN,
+                "STRING" => TypeOfString::STRING,
+                "ARRAY" => TypeOfString::ARRAY,
+                "OBJECT" => TypeOfString::OBJECT,
+                _ => TypeOfString::NULL,
             }
         }
     }
@@ -710,6 +724,19 @@ mod type_of_string {
         assert_eq!(TypeOfString::STRING.value(), "STRING");
         assert_eq!(TypeOfString::ARRAY.value(), "ARRAY");
         assert_eq!(TypeOfString::OBJECT.value(), "OBJECT");
+        assert_eq!(TypeOfString::NULL.value(), "NULL");
+    }
+
+    #[test]
+    fn rev_value_check() {
+        assert_eq!(TypeOfString::from_value("INTEGER"), TypeOfString::INT64);
+        assert_eq!(TypeOfString::from_value("FLOAT"), TypeOfString::F64);
+        assert_eq!(TypeOfString::from_value("BOOLEAN"), TypeOfString::BOOLEAN);
+        assert_eq!(TypeOfString::from_value("STRING"), TypeOfString::STRING);
+        assert_eq!(TypeOfString::from_value("ARRAY"), TypeOfString::ARRAY);
+        assert_eq!(TypeOfString::from_value("OBJECT"), TypeOfString::OBJECT);
+        assert_eq!(TypeOfString::from_value("NULL"), TypeOfString::NULL);
+        assert_eq!(TypeOfString::from_value("_"), TypeOfString::NULL);
     }
 }
 
