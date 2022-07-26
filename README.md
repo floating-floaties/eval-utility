@@ -1,11 +1,11 @@
 # Eval Utility
 
-Wrapper function of the [eval crate](https://crates.io/crates/eval). Provides python-like built-in functions.
+Wrapper function of the [resolver crate](https://crates.io/crates/resolver). Provides python-like built-in functions.
 
 
 ## Example
 
-See test cases in `lib.rs` for more examples.
+See test cases in [`lib.rs`](https://github.com/floating-floaties/eval-utility/blob/main/src/lib.rs#L567) for more examples.
 
 ```rust
 
@@ -14,7 +14,7 @@ use eval_utility::eval_wrapper::{expr_wrapper, EvalConfig};
 fn main () {
     let expression = "float('42.42') == 42.42";
     let expr = expr_wrapper(
-        eval::Expr::new(expression),
+        resolver::Expr::new(expression),
         EvalConfig::default(),
     );
 

@@ -1,3 +1,4 @@
+#![doc = include_str!("./../README.md")]
 pub mod eval_wrapper {
     use chrono::{Datelike, TimeZone, Timelike};
     use resolver::{to_value, Expr, Value};
