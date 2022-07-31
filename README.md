@@ -2,6 +2,14 @@
 
 Wrapper function of the [resolver crate](https://crates.io/crates/resolver). Provides python-like built-in functions.
 
+## Crate
+
+```toml
+[dependencies]
+resolver = "^0.1"
+eval-utility = "^0.1"
+```
+
 
 ## Example
 
