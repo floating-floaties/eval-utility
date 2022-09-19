@@ -1,9 +1,29 @@
 #![doc = include_str!("./../README.md")]
-#[forbid(unsafe_code)]
+#![forbid(unsafe_code)]
+
 pub mod eval_wrapper {
-    use chrono::{Datelike, TimeZone, Timelike};
+    use std::sync::{Arc, Mutex};
+    use chrono::{Datelike, Timelike};
+    use lazy_static::lazy_static;
     use resolver::{to_value, Expr, Value};
     use regex::Regex;
+    use inflection_rs::inflection::Inflection;
+
+    lazy_static!{
+        static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::new()));
+    }
+
+//     let g = Arc::clone(&INFLECTION);
+//     let lock = g.lock();
+//     let v = match lock {
+//     Ok(mut inf) => {
+// inf.pluralize("hello")
+// },
+//     Err(err) => {
+// log::error!("ERROR: Failed to acquire inflection resource lock '{:?}'", err);
+// "".to_string()
+// }
+// };
 
     pub mod consts {
         pub mod tz {
@@ -32,7 +52,7 @@ pub mod eval_wrapper {
 
     impl EvalConfig {
         pub fn default() -> Self {
-            EvalConfig {
+            Self {
                 include_maths: true,
                 include_datetime: true,
                 include_cast: true,
@@ -41,14 +61,14 @@ pub mod eval_wrapper {
         }
 
         pub fn any(&self) -> bool {
-            return self.include_maths
+            self.include_maths
                 || self.include_datetime
                 || self.include_cast
-                || self.include_regex;
+                || self.include_regex
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum TypeOfString {
         INT64,
         F64,
@@ -86,34 +106,34 @@ pub mod eval_wrapper {
     }
 
     pub fn math_consts() -> Vec<(String, (String, TypeOfString))> {
-        return vec![
+        vec![
             (
                 "MIN_INT".to_string(),
-                (std::i64::MIN.to_string(), TypeOfString::INT64),
+                (i64::MIN.to_string(), TypeOfString::INT64),
             ),
             (
                 "MAX_INT".to_string(),
-                (std::i64::MAX.to_string(), TypeOfString::INT64),
+                (i64::MAX.to_string(), TypeOfString::INT64),
             ),
             (
                 "MAX_FLOAT".to_string(),
-                (std::f64::MAX.to_string(), TypeOfString::F64),
+                (f64::MAX.to_string(), TypeOfString::F64),
             ),
             (
                 "MIN_FLOAT".to_string(),
-                (std::f64::MIN.to_string(), TypeOfString::F64),
+                (f64::MIN.to_string(), TypeOfString::F64),
             ),
             (
                 "NAN".to_string(),
-                (std::f64::NAN.to_string(), TypeOfString::F64),
+                (f64::NAN.to_string(), TypeOfString::F64),
             ),
             (
                 "INFINITY".to_string(),
-                (std::f64::INFINITY.to_string(), TypeOfString::F64),
+                (f64::INFINITY.to_string(), TypeOfString::F64),
             ),
             (
                 "NEG_INFINITY".to_string(),
-                (std::f64::NEG_INFINITY.to_string(), TypeOfString::F64),
+                (f64::NEG_INFINITY.to_string(), TypeOfString::F64),
             ),
             (
                 "E".to_string(),
@@ -193,7 +213,7 @@ pub mod eval_wrapper {
                 "TAU".to_string(),
                 (std::f64::consts::TAU.to_string(), TypeOfString::F64),
             ),
-        ];
+        ]
     }
 
     pub fn expr_wrapper(exp: Expr, config: EvalConfig) -> Expr {
@@ -232,7 +252,7 @@ pub mod eval_wrapper {
                 })
                 .function("float", |value| {
                     if value.is_empty() {
-                        return Ok(to_value(std::f64::NAN));
+                        return Ok(to_value(f64::NAN));
                     }
                     let v = value.get(0).unwrap();
                     let num: f64 = match v {
@@ -246,9 +266,9 @@ pub mod eval_wrapper {
                         }
                         Value::String(x) => match x.parse::<f64>() {
                             Ok(x) => x,
-                            _ => std::f64::NAN,
+                            _ => f64::NAN,
                         },
-                        _ => std::f64::NAN,
+                        _ => f64::NAN,
                     };
 
                     Ok(to_value(num))
@@ -332,50 +352,51 @@ pub mod eval_wrapper {
             result = result
                 .function("day", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(resolver::to_value(current_time.date().day()))
+                    Ok(to_value(current_time.date().day()))
                 })
                 .function("month", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(resolver::to_value(current_time.date().month()))
+                    Ok(to_value(current_time.date().month()))
                 })
                 .function("year", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(resolver::to_value(current_time.date().year()))
+                    Ok(to_value(current_time.date().year()))
                 })
                 .function("weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(resolver::to_value(
+                    Ok(to_value(
                         current_time.date().weekday().number_from_monday(),
                     ))
                 })
                 .function("is_weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
                     let weekday = current_time.date().weekday().number_from_monday();
-                    Ok(resolver::to_value(weekday < 6))
+                    Ok(to_value(weekday < 6))
                 })
                 .function("is_weekend", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
                     let weekday = current_time.date().weekday();
                     let weekends = [chrono::Weekday::Sat, chrono::Weekday::Sun];
-                    Ok(resolver::to_value(weekends.contains(&weekday)))
+                    Ok(to_value(weekends.contains(&weekday)))
                 })
                 .function("time", |extract| {
                     if extract.len() < 2 {
                         let t = now("_".to_owned());
-                        return Ok(resolver::to_value(t.hour()));
+                        return Ok(to_value(t.hour()));
                     }
+
                     let v: String = match extract.get(1).unwrap() {
-                        resolver::Value::Number(x) => {
+                        Value::Number(x) => {
                             if x.is_f64() {
                                 x.as_f64().unwrap().to_string()
                             } else {
                                 x.as_i64().unwrap().to_string()
                             }
                         }
-                        resolver::Value::Bool(x) => x.to_string(),
-                        resolver::Value::String(x) => x.to_string(),
-                        resolver::Value::Array(x) => serde_json::to_string(x).unwrap(),
-                        resolver::Value::Object(x) => serde_json::to_string(x).unwrap(),
+                        Value::Bool(x) => x.to_string(),
+                        Value::String(x) => x.to_string(),
+                        Value::Array(x) => serde_json::to_string(x).unwrap(),
+                        Value::Object(x) => serde_json::to_string(x).unwrap(),
                         _ => String::from("null"),
                     };
 
@@ -388,18 +409,18 @@ pub mod eval_wrapper {
                         "s" | "second" | "seconds" => current_time.second(),
                         _ => current_time.hour(),
                     };
-                    Ok(resolver::to_value(result))
+                    Ok(to_value(result))
                 })
         }
 
-        return result;
+        result
 
         // TODO: is_nan(n), is_min_int(n), is_int_max(n), includes(arr)
         // TODO: min(arr), max(arr), abs(n), pow(n, p), sum(arr), reverse(arr), sort(arr), unique(arr)
     }
 
     fn eval_tz_parse_args(
-        arguments: Vec<resolver::Value>,
+        arguments: Vec<Value>,
         min_args: usize,
     ) -> chrono::DateTime<chrono_tz::Tz> {
         let default_tz = "_".to_owned();
@@ -409,7 +430,7 @@ pub mod eval_wrapper {
         }
 
         let v: Option<String> = match arguments.get(0).unwrap() {
-            resolver::Value::String(x) => Some(x.to_string()),
+            Value::String(x) => Some(x.to_string()),
             _ => None,
         };
 
@@ -418,37 +439,21 @@ pub mod eval_wrapper {
             return now(default_tz);
         }
 
-        return now(v.unwrap());
+        now(v.unwrap())
     }
 
     fn now(tz: String) -> chrono::DateTime<chrono_tz::Tz> {
-        let utc = chrono::offset::Utc::now();
-        let naive_dt = chrono::NaiveDate::from_ymd(utc.year(), utc.month(), utc.day()).and_hms(
-            utc.hour(),
-            utc.minute(),
-            utc.second(),
-        );
+        chrono::offset::Utc::now()
+            .with_timezone(&str_to_tz(tz))
 
-        str_to_tz(tz).from_local_datetime(&naive_dt).unwrap()
     }
 
     fn str_to_tz(timezone: String) -> chrono_tz::Tz {
-        match timezone.as_str() {
-            consts::tz::US_ALASKA => chrono_tz::US::Alaska,
-            consts::tz::US_ALEUTIAN => chrono_tz::US::Aleutian,
-            consts::tz::US_ARIZONA => chrono_tz::US::Arizona,
-            consts::tz::US_CENTRAL => chrono_tz::US::Central,
-            consts::tz::US_EASTINDIANA => chrono_tz::US::EastIndiana,
-            consts::tz::US_EASTERN => chrono_tz::US::Eastern,
-            consts::tz::US_HAWAII => chrono_tz::US::Hawaii,
-            consts::tz::US_INDIANA_STARKE => chrono_tz::US::IndianaStarke,
-            consts::tz::US_MICHIGAN => chrono_tz::US::Michigan,
-            consts::tz::US_MOUNTAIN => chrono_tz::US::Mountain,
-            consts::tz::US_PACIFIC => chrono_tz::US::Pacific,
-            consts::tz::US_SAMOA => chrono_tz::US::Samoa,
-            _ => {
+        match timezone.parse() {
+            Ok(tz) => tz,
+            Err(_err) => {
                 log::warn!("Defaulted to UTC timezone");
-                return chrono_tz::UTC;
+                chrono_tz::UTC
             }
         }
     }
@@ -480,19 +485,19 @@ pub mod eval_wrapper {
         }
 
         let result = item.parse::<i64>();
-        match result {
-            Ok(v) => return v,
+        return match result {
+            Ok(v) => v,
             Err(error) => match error.kind() {
-                std::num::IntErrorKind::NegOverflow => return std::i64::MIN,
-                std::num::IntErrorKind::PosOverflow => return std::i64::MAX,
+                std::num::IntErrorKind::NegOverflow => i64::MIN,
+                std::num::IntErrorKind::PosOverflow => i64::MAX,
                 std::num::IntErrorKind::InvalidDigit => {
                     let result = item.parse::<f64>();
                     match result {
-                        Ok(v) => return v.round() as i64,
-                        _ => return 0,
-                    };
+                        Ok(v) => v.round() as i64,
+                        _ => 0,
+                    }
                 }
-                _ => return 0,
+                _ => 0,
             },
         }
     }
@@ -530,7 +535,7 @@ mod eval {
                 )
             }
 
-            return result.unwrap();
+            result.unwrap()
  
         }
     }
@@ -538,15 +543,15 @@ mod eval {
     #[test]
     fn global_variables() {
         let user_spec = Spec::default();
-        assert_eq!(user_spec.eval("MIN_INT"), to_value(std::i64::MIN));
-        assert_eq!(user_spec.eval("MAX_INT"), to_value(std::i64::MAX));
-        assert_eq!(user_spec.eval("MAX_FLOAT"), to_value(std::f64::MAX));
-        assert_eq!(user_spec.eval("MIN_FLOAT"), to_value(std::f64::MIN));
-        assert_eq!(user_spec.eval("NAN"), to_value(std::f64::NAN));
-        assert_eq!(user_spec.eval("INFINITY"), to_value(std::f64::INFINITY));
+        assert_eq!(user_spec.eval("MIN_INT"), to_value(i64::MIN));
+        assert_eq!(user_spec.eval("MAX_INT"), to_value(i64::MAX));
+        assert_eq!(user_spec.eval("MAX_FLOAT"), to_value(f64::MAX));
+        assert_eq!(user_spec.eval("MIN_FLOAT"), to_value(f64::MIN));
+        assert_eq!(user_spec.eval("NAN"), to_value(f64::NAN));
+        assert_eq!(user_spec.eval("INFINITY"), to_value(f64::INFINITY));
         assert_eq!(
             user_spec.eval("NEG_INFINITY"),
-            to_value(std::f64::NEG_INFINITY)
+            to_value(f64::NEG_INFINITY)
         );
     }
 
@@ -566,7 +571,7 @@ mod eval {
     }
 
     #[test]
-    fn str() {
+    fn _str() {
         let user_spec = Spec::default();
         assert_eq!(user_spec.eval("str(42)"), "42");
         assert_eq!(user_spec.eval("str(42.42)"), "42.42");
@@ -613,18 +618,18 @@ mod eval {
         assert_eq!(user_spec.eval("float('42')"), 42.0);
         assert_eq!(user_spec.eval("float(true)"), 1.0);
         assert_eq!(user_spec.eval("float(false)"), 0.0);
-        assert_eq!(user_spec.eval("float('')"), to_value(std::f64::NAN));
+        assert_eq!(user_spec.eval("float('')"), to_value(f64::NAN));
         assert_eq!(
             user_spec.eval("float('not a num')"),
-            to_value(std::f64::NAN)
+            to_value(f64::NAN)
         );
-        assert_eq!(user_spec.eval("float(ctx)"), to_value(std::f64::NAN));
+        assert_eq!(user_spec.eval("float(ctx)"), to_value(f64::NAN));
         assert_eq!(
             user_spec.eval("float(array(42, 42))"),
-            to_value(std::f64::NAN)
+            to_value(f64::NAN)
         );
-        assert_eq!(user_spec.eval("float(0..42)"), to_value(std::f64::NAN));
-        assert_eq!(user_spec.eval("float(null)"), to_value(std::f64::NAN));
+        assert_eq!(user_spec.eval("float(0..42)"), to_value(f64::NAN));
+        assert_eq!(user_spec.eval("float(null)"), to_value(f64::NAN));
     }
 
     #[test]

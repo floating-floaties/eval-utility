@@ -18,6 +18,8 @@ chrono = "^0.4"
 chrono-tz = { version = "^0.6", features = ["serde"] }
 regex = "^1.6"
 log = "^0.4"
+lazy_static = "1.4.0"
 
 # internal deps
 resolver = "^0.1"
+inflection-rs = "^0.1"
