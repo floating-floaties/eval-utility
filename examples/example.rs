@@ -8,6 +8,5 @@ fn main () {
     );
 
     let result = expr.exec();
-
     println!("\"{}\" resolved to {:?}", expression, result);
 }

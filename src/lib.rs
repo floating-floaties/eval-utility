@@ -1,16 +1,79 @@
-#![doc = include_str!("./../README.md")]
+#![doc = include_str ! ("./../README.md")]
 #![forbid(unsafe_code)]
 
+pub mod template {
+    use std::collections::HashMap;
+    use lazy_static::lazy_static;
+    use resolver::{to_value, Expr, Value};
+    use regex::Regex;
+
+    lazy_static!{
+        static ref CONDITION_PATTERN: Regex = Regex::new(r"(<\?([^\?]*)\?>)").unwrap();
+        static ref CONTEXT_SYM: String = String::from("$");
+    }
+
+    pub fn resolve_template(
+        template: String,
+        context: HashMap<String, Value>,
+    ) -> Result<String, resolver::Error> {
+        let mut map: HashMap<String, String> = HashMap::new();
+        for cap in CONDITION_PATTERN.captures_iter(&*template) {
+
+            let a = &cap[1];
+            let b = cap[2].trim();
+            let expr = Expr::new(b)
+                .value(CONTEXT_SYM.to_string(), &context);
+            let value = expr.exec()?;
+            let value_str = match value {
+                Value::Null => "null".into(),
+                Value::Bool(boolean) => boolean.to_string(),
+                Value::Number(number) => number.to_string(),
+                Value::String(string) => string,
+                Value::Array(arr) => serde_json::to_string(&arr)
+                    .unwrap_or_else(|_| "[]".into()),
+                Value::Object(obj) => serde_json::to_string(&obj)
+                    .unwrap_or_else(|_| "{}".into())
+            };
+            map.insert(a.to_string(), value_str);
+        }
+
+        let mut result= template;
+        for (key, value) in map.iter() {
+            // TODO(Dustin): Replace by range?
+            result = result.replace(key, value);
+        }
+
+        Ok(result)
+    }
+}
 pub mod eval_wrapper {
     use std::sync::{Arc, Mutex};
     use chrono::{Datelike, Timelike};
     use lazy_static::lazy_static;
     use resolver::{to_value, Expr, Value};
     use regex::Regex;
-    use inflection_rs::inflection::Inflection;
+    // use inflection_rs::inflection::Inflection;
 
-    lazy_static!{
-        static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::new()));
+    macro_rules! substr {
+        ($str:expr, $start_pos:expr) => {{
+            substr!($str, $start_pos, $str.len())
+        }};
+
+        ($str:expr, $start_pos:expr, $end_pos:expr) => {{
+            substr!($str, $start_pos, $end_pos - $start_pos, true)
+        }};
+
+        ($str:expr, $start_pos:expr, $take_count:expr, $use_take:expr) => {{
+            &$str
+                .chars()
+                .skip($start_pos)
+                .take($take_count)
+                .collect::<String>()
+        }};
+    }
+
+    lazy_static! {
+        // static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::new()));
     }
 
 //     let g = Arc::clone(&INFLECTION);
@@ -24,23 +87,6 @@ pub mod eval_wrapper {
 // "".to_string()
 // }
 // };
-
-    pub mod consts {
-        pub mod tz {
-            pub const US_ALASKA: &str = "US/Alaska";
-            pub const US_ALEUTIAN: &str = "US/Aleutian";
-            pub const US_ARIZONA: &str = "US/Arizona";
-            pub const US_CENTRAL: &str = "US/Central";
-            pub const US_EASTINDIANA: &str = "US/EastIndiana";
-            pub const US_EASTERN: &str = "US/Eastern";
-            pub const US_HAWAII: &str = "US/Hawaii";
-            pub const US_INDIANA_STARKE: &str = "US/IndianaStarke";
-            pub const US_MICHIGAN: &str = "US/Michigan";
-            pub const US_MOUNTAIN: &str = "US/Mountain";
-            pub const US_PACIFIC: &str = "US/Pacific";
-            pub const US_SAMOA: &str = "US/Samoa";
-        }
-    }
 
     #[derive(Debug, Clone)]
     pub struct EvalConfig {
@@ -229,23 +275,27 @@ pub mod eval_wrapper {
                     if value.is_empty() {
                         return Ok(to_value(0_i64));
                     }
-                    let v = value.get(0).unwrap();
+                    let v = match value.get(0) {
+                        None => to_value(0),
+                        Some(value) => value.to_owned(),
+                    };
+
                     let num: i64 = match v {
                         Value::Number(x) => {
                             if x.is_f64() {
-                                x.as_f64().unwrap() as i64
+                                x.as_f64().unwrap_or(0_f64) as i64
                             } else {
-                                x.as_i64().unwrap()
+                                x.as_i64().unwrap_or(0)
                             }
                         }
                         Value::Bool(x) => {
-                            if *x {
+                            if x {
                                 1
                             } else {
                                 0
                             }
                         }
-                        Value::String(x) => atoi(x.to_string()),
+                        Value::String(x) => atoi(x),
                         _ => 0,
                     };
                     Ok(to_value(num))
@@ -254,11 +304,14 @@ pub mod eval_wrapper {
                     if value.is_empty() {
                         return Ok(to_value(f64::NAN));
                     }
-                    let v = value.get(0).unwrap();
+                    let v = match value.get(0) {
+                        None => to_value(0_f64),
+                        Some(value) => value.to_owned(),
+                    };
                     let num: f64 = match v {
-                        Value::Number(x) => x.as_f64().unwrap(),
+                        Value::Number(x) => x.as_f64().unwrap_or(0_f64),
                         Value::Bool(x) => {
-                            if *x {
+                            if x {
                                 1.0
                             } else {
                                 0.0
@@ -277,10 +330,14 @@ pub mod eval_wrapper {
                     if value.is_empty() {
                         return Ok(to_value(false));
                     }
-                    let v = value.get(0).unwrap();
+                    let v = match value.get(0) {
+                        None => to_value(false),
+                        Some(value) => value.to_owned(),
+                    };
+
                     let result: bool = match v {
-                        Value::Number(x) => x.as_f64().unwrap() != 0.0,
-                        Value::Bool(x) => *x,
+                        Value::Number(x) => x.as_f64().unwrap_or(0_f64) != 0.0,
+                        Value::Bool(x) => x,
                         Value::String(x) => !x.is_empty(),
                         Value::Array(x) => !x.is_empty(),
                         Value::Object(x) => !x.is_empty(),
@@ -293,31 +350,39 @@ pub mod eval_wrapper {
                     if value.is_empty() {
                         return Ok(to_value("".to_string()));
                     }
-                    let v = value.get(0).unwrap();
+                    let v = match value.get(0) {
+                        None => to_value("".to_string()),
+                        Some(value) => value.to_owned(),
+                    };
+
                     let result: String = match v {
                         Value::Number(x) => {
                             if x.is_f64() {
-                                x.as_f64().unwrap().to_string()
+                                x.as_f64().unwrap_or(0_f64).to_string()
                             } else {
-                                x.as_i64().unwrap().to_string()
+                                x.as_i64().unwrap_or(0_i64).to_string()
                             }
                         }
                         Value::Bool(x) => x.to_string(),
-                        Value::String(x) => x.to_string(),
-                        Value::Array(x) => serde_json::to_string(x).unwrap(),
-                        Value::Object(x) => serde_json::to_string(x).unwrap(),
-                        _ => String::from("null"),
+                        Value::String(x) => x,
+                        Value::Array(x) => serde_json::to_string(&x)
+                            .unwrap_or_else(|_| "null".to_string()),
+                        Value::Object(x) => serde_json::to_string(&x)
+                            .unwrap_or_else(|_| "null".to_string()),
+                        _ => "null".to_string(),
                     };
                     Ok(to_value(result))
-                })
+                });
         }
 
         if config.include_maths {
             for (key, (str_value, type_of)) in math_consts() {
                 if type_of == TypeOfString::INT64 {
-                    result = result.value(key, str_value.parse::<i64>().unwrap())
+                    result = result.value(key, str_value.parse::<i64>()
+                        .unwrap_or(0_i64))
                 } else if type_of == TypeOfString::F64 {
-                    result = result.value(key, str_value.parse::<f64>().unwrap())
+                    result = result.value(key, str_value.parse::<f64>()
+                        .unwrap_or(0_f64))
                 } else {
                     panic!("math constants should just be integers and floats; not {:?}", type_of);
                 }
@@ -329,8 +394,9 @@ pub mod eval_wrapper {
                 if value.len() < 2 {
                     return Ok(to_value(false));
                 }
+
                 let v = value.get(0).unwrap();
-                let pattern = value.get(1).unwrap().to_string();
+                let pattern = value.get(1).unwrap().as_str().unwrap();
 
                 let value: String = match v {
                     Value::Number(x) => x.as_f64().unwrap().to_string(),
@@ -341,11 +407,35 @@ pub mod eval_wrapper {
                     _ => String::from("null"),
                 };
 
-                let prog = Regex::new(&pattern).unwrap();
+                let prog = Regex::new(pattern).unwrap();
                 let is_match = prog.is_match(&value);
-
                 Ok(to_value(is_match))
-            })
+            }).function("extract", |value| {
+                if value.len() < 2 {
+                    return Ok(to_value(false));
+                }
+
+                let v = value.get(0).unwrap();
+                let pattern = value.get(1).unwrap().as_str().unwrap();
+
+                let value: String = match v {
+                    Value::Number(x) => x.as_f64().unwrap().to_string(),
+                    Value::Bool(x) => x.to_string(),
+                    Value::String(x) => x.to_string(),
+                    Value::Array(x) => serde_json::to_string(x).unwrap(),
+                    Value::Object(x) => serde_json::to_string(x).unwrap(),
+                    _ => String::from("null"),
+                };
+
+                let prog = Regex::new(pattern).unwrap();
+                match prog.find(&value) {
+                    None => Ok(to_value("".to_string())),
+                    Some(m) => {
+                        let (start, end) = (m.start(), m.end());
+                        Ok(to_value(substr!(value, start, end)))
+                    }
+                }
+            });
         }
 
         if config.include_datetime {
@@ -410,7 +500,7 @@ pub mod eval_wrapper {
                         _ => current_time.hour(),
                     };
                     Ok(to_value(result))
-                })
+                });
         }
 
         result
@@ -433,7 +523,6 @@ pub mod eval_wrapper {
             Value::String(x) => Some(x.to_string()),
             _ => None,
         };
-
         if v.is_none() {
             log::warn!("Invalid Timezone");
             return now(default_tz);
@@ -445,7 +534,6 @@ pub mod eval_wrapper {
     fn now(tz: String) -> chrono::DateTime<chrono_tz::Tz> {
         chrono::offset::Utc::now()
             .with_timezone(&str_to_tz(tz))
-
     }
 
     fn str_to_tz(timezone: String) -> chrono_tz::Tz {
@@ -463,10 +551,10 @@ pub mod eval_wrapper {
             .trim()
             .split(char::is_whitespace)
             .next()
-            .unwrap()
+            .unwrap_or("")
             .split(char::is_alphabetic)
             .next()
-            .unwrap();
+            .unwrap_or("");
 
         let mut end_idx = 0;
         for (pos, c) in item.chars().enumerate() {
@@ -485,7 +573,7 @@ pub mod eval_wrapper {
         }
 
         let result = item.parse::<i64>();
-        return match result {
+        match result {
             Ok(v) => v,
             Err(error) => match error.kind() {
                 std::num::IntErrorKind::NegOverflow => i64::MIN,
@@ -504,26 +592,26 @@ pub mod eval_wrapper {
 }
 
 
-
 #[cfg(test)]
 mod eval {
+    use std::collections::HashMap;
     use chrono::offset::Utc as Date;
     use chrono::{Datelike, Timelike};
     use resolver::to_value;
 
-    use crate::eval_wrapper;
+    use crate::{eval_wrapper, template};
 
     struct Spec;
 
     impl Spec {
         pub fn default() -> Self {
             Spec {}
-        } 
-        
+        }
+
         pub fn eval<S: AsRef<str>>(&self, expression: S) -> resolver::Value {
             let expr = eval_wrapper::expr_wrapper(
                 resolver::Expr::new(expression.as_ref().to_owned()),
-                eval_wrapper::EvalConfig::default()
+                eval_wrapper::EvalConfig::default(),
             );
             let result = expr.exec();
 
@@ -536,7 +624,6 @@ mod eval {
             }
 
             result.unwrap()
- 
         }
     }
 
@@ -716,11 +803,44 @@ mod eval {
             Date::now().time().second()
         );
     }
+
+    #[test]
+    fn is_match() {
+        let user_spec = Spec::default();
+        assert_eq!(user_spec.eval("is_match('http', '^https?$')"), to_value(true));
+        assert_eq!(user_spec.eval("is_match('http', 'https')"), to_value(false));
+        assert_eq!(user_spec.eval("is_match('http://', '^udp://')"), to_value(false));
+        assert_eq!(user_spec.eval("is_match('http://', '^(https?|wss?)://$')"), to_value(true));
+        assert_eq!(user_spec.eval(r"is_match('2014-01-01', '^\d{4}-\d{2}-\d{2}$')"), to_value(true));
+    }
+
+    #[test]
+    fn extract() {
+        let user_spec = Spec::default();
+        assert_eq!(user_spec.eval("extract('http://www.floa', 'https?://')"), "http://");
+        assert_eq!(user_spec.eval("extract('foo', 'bar')"), "");
+    }
+
+    #[test]
+    fn template_engine() {
+        // let user_spec = Spec::default();
+
+        let mut context = HashMap::new();
+        context.insert("name".into(), to_value("Kar"));
+        context.insert("location".into(), to_value("foo-bar"));
+
+        assert_eq!(
+            template::resolve_template(
+                "Hi, my name is <? $.name ?> and I live in <? $.location ?>".to_string(),
+                context,
+            ).unwrap(),
+           "Hi, my name is Kar and I live in foo-bar".to_string()
+        );
+    }
 }
 
 #[cfg(test)]
 mod type_of_string {
-
     use crate::eval_wrapper::TypeOfString;
 
     #[test]
