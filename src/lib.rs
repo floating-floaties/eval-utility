@@ -30,7 +30,7 @@ pub mod template {
             let a = &cap[1];
             let b = cap[2].trim();
             if !b.is_empty() {
-                let expr = resolver::Expr::new(b)
+                let expr = Expr::new(b)
                     .value(CONTEXT_SYM.to_string(), &context);
                 let value = expr.exec()?;
                 let value_str = match value {
@@ -547,23 +547,27 @@ mod eval {
     use resolver::to_value;
     use serde_json::json;
 
-    use crate::{eval_wrapper, template};
+    use crate::{eval_wrapper::{EvalConfig, ExprWrapper}, template};
 
     #[derive(Default)]
     struct Spec;
 
     impl Spec {
         pub fn eval<S: AsRef<str>>(&self, expression: S) -> resolver::Value {
-            let expr = eval_wrapper::expr_wrapper(
-                resolver::Expr::new(expression.as_ref().to_owned()),
-                Default::default(),
-            );
+            let expr = ExprWrapper::new(expression.as_ref())
+                .config(EvalConfig {
+                    include_maths: true,
+                    include_regex: true,
+                    include_datetime: true,
+                    include_cast: true,
+                })
+                .init();
             let result = expr.exec();
 
             if result.is_err() {
                 panic!(
                     "Failed to parse expression: \"{}\" {:?}",
-                    expression.as_ref().to_owned(),
+                    expression.as_ref(),
                     result
                 )
             }
@@ -824,7 +828,7 @@ mod eval {
         assert_eq!(
             template::resolve_template(
                 "Hello, <? ?>".to_string(),
-                context.clone(),
+                context,
             ).expect("Failed to resolve template"),
             "Hello, ".to_string(),
         );
