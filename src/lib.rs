@@ -1,10 +1,20 @@
 #![doc = include_str ! ("./../README.md")]
 #![forbid(unsafe_code)]
 
+pub mod types {
+    pub type Expr = resolver::Expr;
+    pub type Value = resolver::Value;
+
+    pub fn to_value<S: serde::Serialize>(v: S) -> Value {
+        resolver::to_value(v)
+    }
+}
+
 pub mod template {
     use lazy_static::lazy_static;
-    use resolver::{Expr, Value};
     use regex::Regex;
+
+    use crate::types::*;
 
     lazy_static! {
         static ref CONDITION_PATTERN: Regex = Regex::new(r"(<\?([^\?]*)\?>)").unwrap();
@@ -20,7 +30,7 @@ pub mod template {
             let a = &cap[1];
             let b = cap[2].trim();
             if !b.is_empty() {
-                let expr = Expr::new(b)
+                let expr = resolver::Expr::new(b)
                     .value(CONTEXT_SYM.to_string(), &context);
                 let value = expr.exec()?;
                 let value_str = match value {
@@ -53,9 +63,11 @@ pub mod eval_wrapper {
     use std::sync::{Arc, Mutex};
     use chrono::{Datelike, Timelike};
     use lazy_static::lazy_static;
-    use resolver::{to_value, Expr, Value};
+    use resolver::{to_value, Expr};
     use regex::Regex;
     use inflection_rs::inflection::Inflection;
+
+    use crate::types::*;
 
     macro_rules! substr {
         ($str:expr, $start_pos:expr) => {{
@@ -163,6 +175,37 @@ pub mod eval_wrapper {
         }}
     }
 
+    #[derive(Clone)]
+    pub struct ExprWrapper {
+        expr: Expr,
+        config: EvalConfig,
+    }
+
+    impl ExprWrapper {
+        pub fn new<S: AsRef<str>>(expression: S) -> ExprWrapper {
+            ExprWrapper {
+                expr: Expr::new(expression.as_ref()),
+                config: Default::default(),
+            }
+        }
+
+        pub fn config(mut self, config: EvalConfig) -> ExprWrapper {
+            self.config = config;
+            self
+        }
+
+        pub fn init(mut self) -> ExprWrapper {
+            self.expr = expr_wrapper(self.expr.clone(), self.config.clone());
+            self
+        }
+
+        pub fn exec(&self) -> Result<Value, resolver::Error> {
+            self.expr.exec()
+        }
+    }
+
+    /// This function is DEPRECATED see README.md for new usage.
+    #[deprecated]
     pub fn expr_wrapper(exp: Expr, config: EvalConfig) -> Expr {
         if !config.any() {
             return exp;
@@ -497,7 +540,7 @@ mod eval {
         pub fn eval<S: AsRef<str>>(&self, expression: S) -> resolver::Value {
             let expr = eval_wrapper::expr_wrapper(
                 resolver::Expr::new(expression.as_ref().to_owned()),
-                eval_wrapper::EvalConfig::default(),
+                Default::default(),
             );
             let result = expr.exec();
 

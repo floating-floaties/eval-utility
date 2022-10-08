@@ -16,27 +16,27 @@ eval-utility = "0.2"
 See test cases in [`lib.rs`](https://github.com/floating-floaties/eval-utility/blob/main/src/lib.rs#L484) for more examples.
 
 ```rust
-use resolver::{Expr, to_value};
-use eval_utility::eval_wrapper::{expr_wrapper, EvalConfig};
+use eval_utility::eval_wrapper::{EvalConfig, ExprWrapper};
 
-fn main () {
+fn main() {
     let expression = "float('42.42') == 42.42";
     let expected = true;
-    
-    let expr = expr_wrapper(
-        Expr::new(expression),
-        EvalConfig {
+
+
+    let expr = ExprWrapper::new(expression)
+        // .config(Default::default())
+        .config(EvalConfig { // same as Default::default() ^
             include_maths: true,
+            include_regex: true,
             include_datetime: true,
             include_cast: true,
-            include_regex: true,
-        },
-    );
+        })
+        .init();
 
     match expr.exec() {
-         Ok(value) => {
-            assert_eq!(value, to_value(expected));
-        },
+        Ok(value) => {
+            assert_eq!(value, expected);
+        }
         Err(err) => {
             panic!("err={err:?}");
         }
