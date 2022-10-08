@@ -199,6 +199,22 @@ pub mod eval_wrapper {
             self
         }
 
+        pub fn value<T, V>(mut self, name: T, value: V) -> ExprWrapper
+            where T: Into<String>,
+                  V: serde::Serialize
+        {
+            self.expr = self.expr.value(name, value);
+            self
+        }
+
+        pub fn function<T, F>(mut self, name: T, function: F) -> ExprWrapper
+            where T: Into<String>,
+                  F: 'static + Fn(Vec<Value>) -> Result<Value, resolver::Error> + Sync + Send
+        {
+            self.expr = self.expr.function(name, function);
+            self
+        }
+
         pub fn exec(&self) -> Result<Value, resolver::Error> {
             self.expr.exec()
         }
