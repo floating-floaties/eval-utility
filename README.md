@@ -13,7 +13,7 @@ eval-utility = "0.2"
 
 ## Example
 
-See test cases in [`lib.rs`](https://github.com/floating-floaties/eval-utility/blob/main/src/lib.rs#L567) for more examples.
+See test cases in [`lib.rs`](https://github.com/floating-floaties/eval-utility/blob/main/src/lib.rs#L484) for more examples.
 
 ```rust
 use resolver::{Expr, to_value};

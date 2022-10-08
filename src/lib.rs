@@ -76,7 +76,7 @@ pub mod eval_wrapper {
     }
 
     lazy_static! {
-        static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::new()));
+        static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::default()));
     }
 
 //     let g = Arc::clone(&INFLECTION);
