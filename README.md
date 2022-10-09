@@ -1,12 +1,20 @@
 # Eval Utility
 
+<!-- TOC -->
+* [Eval Utility](#eval-utility)
+  * [About](#about)
+  * [Install](#install)
+  * [Example](#example)
+<!-- TOC -->
+
+## About
+
 Wrapper function of the [resolver crate](https://crates.io/crates/resolver). Provides python-like built-in functions.
 
-## Crate
+## Install
+Add the following line to your Cargo.toml file (under `[dependencies]`):
 
 ```toml
-[dependencies]
-resolver = "0.1"
 eval-utility = "0.2"
 ```
 
