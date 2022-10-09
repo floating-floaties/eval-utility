@@ -19,8 +19,8 @@ fn main() {
         Ok(value) => {
             assert_eq!(value, expected);
         }
-        Err(err) => {
-            panic!("err={err:?}");
+        Err(_err) => {
+            panic!("err={_err:?}");
         }
     };
     // ...

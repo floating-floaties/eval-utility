@@ -2,7 +2,7 @@
 name = "eval-utility"
 version = "0.2.0"
 edition = "2021"
-rust-version = "1.61.0"
+rust-version = "1.64.0"
 description = "Wrapper function of the evaluator crate. Provides python-like built-in functions."
 readme = "README.md"
 homepage = "https://github.com/floating-floaties/eval-utility/"
@@ -23,3 +23,4 @@ hashbrown = "0.12"
 
 resolver = { git = "https://github.com/floating-floaties/resolver.git" }
 inflection-rs = { git = "https://github.com/floating-floaties/inflection-rs.git" }
+string-utility = { git = "https://github.com/floating-floaties/string-utility.git" }

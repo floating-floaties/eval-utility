@@ -66,26 +66,9 @@ pub mod eval_wrapper {
     use resolver::{to_value, Expr};
     use regex::Regex;
     use inflection_rs::inflection::Inflection;
+    use string_utility::Substring;
 
     use crate::types::*;
-
-    macro_rules! substr {
-        ($str:expr, $start_pos:expr) => {{
-            substr!($str, $start_pos, $str.len())
-        }};
-
-        ($str:expr, $start_pos:expr, $end_pos:expr) => {{
-            substr!($str, $start_pos, $end_pos - $start_pos, true)
-        }};
-
-        ($str:expr, $start_pos:expr, $take_count:expr, $use_take:expr) => {{
-            &$str
-                .chars()
-                .skip($start_pos)
-                .take($take_count)
-                .collect::<String>()
-        }};
-    }
 
     lazy_static! {
         static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::default()));
@@ -374,7 +357,7 @@ pub mod eval_wrapper {
                     None => Ok(to_value("".to_string())),
                     Some(m) => {
                         let (start, end) = (m.start(), m.end());
-                        Ok(to_value(substr!(value, start, end)))
+                        Ok(to_value(value.substring(start..end)))
                     }
                 }
             });
