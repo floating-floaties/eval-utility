@@ -66,7 +66,7 @@ pub mod eval_wrapper {
     use resolver::{to_value, Expr};
     use regex::Regex;
     use inflection_rs::inflection::Inflection;
-    use string_utility::Substring;
+    use string_utility::prelude::*;
 
     use crate::types::*;
 
