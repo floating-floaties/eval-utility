@@ -25,12 +25,12 @@ pub mod template {
         template: String,
         context: Value,
     ) -> Result<String, resolver::Error> {
-        let mut map = hashbrown::HashMap::<String, String>::new();
+        let mut map = std::collections::HashMap::<String, String>::new();
         for cap in CONDITION_PATTERN.captures_iter(&*template) {
             let a = &cap[1];
             let b = cap[2].trim();
             if !b.is_empty() {
-                let expr = Expr::new(b)
+                let mut expr = Expr::new(b)
                     .value(CONTEXT_SYM.to_string(), &context);
                 let value = expr.exec()?;
                 let value_str = match value {
@@ -60,31 +60,13 @@ pub mod template {
 }
 
 pub mod eval_wrapper {
-    use std::sync::{Arc, Mutex};
     use chrono::{Datelike, Timelike};
-    use lazy_static::lazy_static;
     use resolver::{to_value, Expr};
     use regex::Regex;
-    use inflection_rs::inflection::Inflection;
+    // use inflection_rs::inflection;
     use string_utility::prelude::*;
 
     use crate::types::*;
-
-    lazy_static! {
-        static ref INFLECTION: Arc<Mutex<Inflection>> = Arc::new(Mutex::new(Inflection::default()));
-    }
-
-//     let g = Arc::clone(&INFLECTION);
-//     let lock = g.lock();
-//     let v = match lock {
-//     Ok(mut inf) => {
-// inf.pluralize("hello")
-// },
-//     Err(err) => {
-// log::error!("ERROR: Failed to acquire inflection resource lock '{:?}'", err);
-// "".to_string()
-// }
-// };
 
     #[derive(Debug, Clone)]
     pub struct EvalConfig {
@@ -198,7 +180,7 @@ pub mod eval_wrapper {
             self
         }
 
-        pub fn exec(&self) -> Result<Value, resolver::Error> {
+        pub fn exec(&mut self) -> Result<Value, resolver::Error> {
             self.expr.exec()
         }
     }
@@ -367,30 +349,30 @@ pub mod eval_wrapper {
             result = result
                 .function("get_day", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(to_value(current_time.date().day()))
+                    Ok(to_value(current_time.date_naive().day()))
                 })
                 .function("get_month", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(to_value(current_time.date().month()))
+                    Ok(to_value(current_time.date_naive().month()))
                 })
                 .function("get_year", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    Ok(to_value(current_time.date().year()))
+                    Ok(to_value(current_time.date_naive().year()))
                 })
                 .function("get_weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
                     Ok(to_value(
-                        current_time.date().weekday().number_from_monday(),
+                        current_time.date_naive().weekday().number_from_monday(),
                     ))
                 })
                 .function("is_weekday", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    let weekday = current_time.date().weekday().number_from_monday();
+                    let weekday = current_time.date_naive().weekday().number_from_monday();
                     Ok(to_value(weekday < 6))
                 })
                 .function("is_weekend", |values| {
                     let current_time = eval_tz_parse_args(values, 1);
-                    let weekday = current_time.date().weekday();
+                    let weekday = current_time.date_naive().weekday();
                     let weekends = [chrono::Weekday::Sat, chrono::Weekday::Sun];
                     Ok(to_value(weekends.contains(&weekday)))
                 })
@@ -537,7 +519,7 @@ mod eval {
 
     impl Spec {
         pub fn eval<S: AsRef<str>>(&self, expression: S) -> resolver::Value {
-            let expr = ExprWrapper::new(expression.as_ref())
+            let mut expr = ExprWrapper::new(expression.as_ref())
                 .config(EvalConfig {
                     include_maths: true,
                     include_regex: true,
@@ -689,7 +671,7 @@ mod eval {
     #[test]
     fn day() {
         let user_spec = Spec::default();
-        let date = Date::now().date();
+        let date = Date::now().date_naive();
         let day = date.day();
 
         assert_eq!(user_spec.eval("get_day()"), day);
@@ -699,7 +681,7 @@ mod eval {
     #[test]
     fn month() {
         let user_spec = Spec::default();
-        let date = Date::now().date();
+        let date = Date::now().date_naive();
         let month = date.month();
 
         assert_eq!(user_spec.eval("get_month()"), month);
@@ -709,7 +691,7 @@ mod eval {
     #[test]
     fn year() {
         let user_spec = Spec::default();
-        let date = Date::now().date();
+        let date = Date::now().date_naive();
         let year = date.year();
         assert_eq!(user_spec.eval("get_year()"), year);
         assert_eq!(user_spec.eval("get_year('_')"), year);

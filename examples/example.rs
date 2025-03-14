@@ -5,7 +5,7 @@ fn main() {
     let expected = true;
 
 
-    let expr = ExprWrapper::new(expression)
+    let mut expr = ExprWrapper::new(expression)
         // .config(Default::default())
         .config(EvalConfig { // same as Default::default() ^
             include_maths: true,
