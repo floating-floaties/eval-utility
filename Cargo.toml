@@ -16,7 +16,7 @@ serde_json = "1.0.143"
 chrono = "0.4.41"
 chrono-tz = { version = "0.10.4", features = ["serde"] }
 regex = "1.11.2"
-log = "0.4.27"
+log = "0.4.28"
 lazy_static = "1.5.0"
 
 # resolver = { git = "https://github.com/floating-floaties/resolver.git" }
