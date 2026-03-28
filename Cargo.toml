@@ -23,6 +23,6 @@ lazy_static = "1.5.0"
 # inflection-rs = { git = "https://github.com/floating-floaties/inflection-rs.git" }
 # string-utility = { git = "https://github.com/floating-floaties/string-utility.git" }
 
-resolver = "0.1.3"
+resolver = "0.2.0"
 inflection-rs = "0.2.2"
 string-utility = "0.2.1"
